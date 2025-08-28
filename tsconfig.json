@@ -3,11 +3,11 @@
   "compilerOptions": { 
     // File Layout
     // "rootDir": "./src",
-    // "outDir": "./dist",
+    "outDir": "./dist",
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
-    "module": "commonjs",
+    "module": "CommonJS",
     "target": "ES2020",
     "types": ["node"],
     "moduleResolution": "Node",
@@ -22,7 +22,6 @@
     "declarationMap": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "outDir": "dist",
 
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
@@ -44,5 +43,6 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-  }
+  },
+  "include": ["src/**/*.ts"]
 }

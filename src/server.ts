@@ -148,6 +148,8 @@ app.post("/c/:id", async (req, res) => {
   res.send(result);
 });
 
+app.get("/health", (_req, res) => res.status(200).send("ok"));
+
 const PORT = Number(process.env.SERVER_PORT || 3000);
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

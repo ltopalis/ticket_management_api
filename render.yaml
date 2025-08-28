@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: reservations-api
+    env: node
+    plan: free
+    buildCommand: "npm ci && npm run build"
+    startCommand: "npm start"
