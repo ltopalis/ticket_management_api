@@ -165,6 +165,8 @@ app.get("/d/:id", async (req, res) => {
   } else if (code === "NO_RESERVATION") {
   } else if (code === "NO_PERMISSION") {
   }
+
+  res.send(result);
 });
 
 app.get("/health", (_req, res) => res.status(200).send("ok"));
