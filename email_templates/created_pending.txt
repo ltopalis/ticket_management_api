@@ -1,0 +1,18 @@
+Κράτηση σε αναμονή #{{public_code}}
+
+Γεια σου {{name}} {{surname}},
+Έχεις ήδη κράτηση για «{{production_name}}» στο {{theater_name}} ({{address}}, {{city}}).
+
+[Υπάρχουσα κράτηση]
+• Κωδικός: {{existing_code}}
+• Ημερομηνία/Ώρα: {{existing_date}} {{existing_time}}
+• Θέσεις: {{existing_num_seats}}
+
+[Νέα κράτηση (σε αναμονή)]
+• Κωδικός: {{public_code}}
+• Ημερομηνία/Ώρα: {{date}} {{time}}
+• Θέσεις: {{num_seats}}
+
+Ενέργειες:
+• Ακύρωση τελευταίας κράτησης: {{cancel_url}}
+• Επιβεβαίωση τελευταίας κράτησης: {{confirm_url}}
