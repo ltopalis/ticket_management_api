@@ -81,9 +81,9 @@ app.post("/createReservation", async (req, res) => {
         theater_id: String(req.body.theater),
         num_seats: String(req.body.num_seats),
       },
-      known_from: String(req.body.known_from),
-      referer: req.body.referer,
-      reserved_by: req.body.reserved_by,
+      known_from: req.body.known_from || null,
+      referer: req.body.referer || null,
+      reserved_by: req.body.reserved_by || null,
     };
 
     // 4) Κλήση DB function — επιστρέφει JSON (ok/code/status/reservation_id/info)
@@ -146,6 +146,25 @@ app.post("/c/:id", async (req, res) => {
   }
 
   res.send(result);
+});
+
+// cancel a pending reservation
+app.post("/r/:id", async (req, res) => {
+  const reservation_id = req.params.id;
+
+  const { rows } = await pool.query(
+    `select public.cancel_reservation($1::text, $2::boolean) as result`,
+    [reservation_id, false]
+  );
+  const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
+
+  const code = result.code;
+  if (code === "CREATED_CANCELED") {
+    sendReservationEmail(result);
+    res.send(result);
+  } else if (code === "NO_RESERVATION") {
+  } else if (code === "NO_PERMISSION") {
+  }
 });
 
 app.get("/health", (_req, res) => res.status(200).send("ok"));

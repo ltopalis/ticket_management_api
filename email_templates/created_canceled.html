@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="el">
+
+<body style="margin:0; padding:0; background:#f7f7f9;">
+    <!-- Preheader -->
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0;">
+        Ακύρωση κράτησης #{{public_code}} — {{production_name}} στο {{theater_name}} ({{city}}) {{date}} {{time}}
+    </div>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+            <td align="center" style="padding:24px;">
+                <table role="presentation" width="640" cellpadding="0" cellspacing="0"
+                    style="background:#ffffff; border-radius:12px; overflow:hidden;">
+
+                    <!-- Header / Logo -->
+                    <tr>
+                        <td style="padding:28px 32px 8px 32px; text-align:center;">
+                            <img src="https://lappas-website.netlify.app/logo-image.png" alt="Lappas Productions"
+                                width="140" style="display:block; margin:0 auto 12px; max-width:100%; border:0;">
+                            <div
+                                style="font-family:Arial,Helvetica,sans-serif; font-size:24px; font-weight:700; color:#111;">
+                                Lappas Productions
+                            </div>
+                            <div
+                                style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#666; margin-top:4px;">
+                                Μουσικοθεατρικές Παραστάσεις &amp; Συναυλίες
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Title -->
+                    <tr>
+                        <td style="padding:8px 32px 0 32px;">
+                            <div
+                                style="font-family:Arial,Helvetica,sans-serif; font-size:18px; color:#111; font-weight:700; margin:8px 0 12px;">
+                                Η κράτησή σου ακυρώθηκε #{{public_code}}
+                            </div>
+                            <div
+                                style="font-family:Arial,Helvetica,sans-serif; font-size:15px; color:#222; line-height:1.6;">
+                                <p style="margin:0 0 12px;">Γεια σου {{name}} {{surname}},</p>
+                                <p style="margin:0 0 12px;">
+                                    Η κράτησή σου για την παράσταση
+                                    <strong>«{{production_name}}»</strong>
+                                    στο <strong>{{theater_name}}</strong>
+                                    {{#if address}} ({{address}}, {{/if}}{{city}}{{#if address}}){{/if}}
+                                    ακυρώθηκε επιτυχώς.
+                                </p>
+
+                                <div style="background:#fafafa; padding:12px 16px; border-radius:8px; margin:0 0 16px;">
+                                    <ul style="margin:0; padding-left:18px;">
+                                        <li><b>Κωδικός κράτησης:</b> {{public_code}}</li>
+                                        <li><b>Ημερομηνία/Ώρα:</b> {{date}} {{time}}</li>
+                                        <li><b>Θέσεις:</b> {{num_seats}}</li>
+                                    </ul>
+                                </div>
+
+                                <p style="margin:0 0 12px;">
+                                    Μπορείς να δεις την ενημερωμένη κατάσταση ή να διαχειριστείς τις κρατήσεις σου από
+                                    τον παρακάτω σύνδεσμο.
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- CTA (Manage) -->
+                    <tr>
+                        <td align="center" style="padding:4px 32px 20px 32px;">
+                            <a href="{{manage_url}}"
+                                style="display:inline-block; padding:12px 18px; background:#111; color:#fff; text-decoration:none; border-radius:8px; font-family:Arial,Helvetica,sans-serif; font-size:14px;">
+                                Προβολή/διαχείριση κρατήσεων
+                            </a>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding:16px 32px 28px 32px; background:#fafafa; border-top:1px solid #eee;">
+                            <div
+                                style="font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#555; line-height:1.5; text-align:center;">
+                                Με εκτίμηση,<br>
+                                <strong>Lappas Productions</strong><br>
+                                <a href="mailto:tickets@lappasproductions.gr"
+                                    style="color:#111; text-decoration:none;">tickets@lappasproductions.gr</a><br>
+                                <a href="tel:+306949384205" style="color:#111; text-decoration:none;">+30 694 938
+                                    4205</a>
+                            </div>
+                            <div
+                                style="font-family:Arial,Helvetica,sans-serif; font-size:11px; color:#999; text-align:center; margin-top:12px;">
+                                Αν δεν ζήτησες εσύ αυτή την ακύρωση, απάντησε σε αυτό το email άμεσα.
+                            </div>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

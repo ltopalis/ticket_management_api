@@ -1,0 +1,13 @@
+Ακύρωση κράτησης #{{public_code}}
+
+Γεια σου {{name}} {{surname}},
+Η κράτησή σου για «{{production_name}}» στο {{theater_name}} {{#if address}}({{address}}, {{/if}}{{city}}{{#if address}}){{/if}} ακυρώθηκε επιτυχώς.
+
+Στοιχεία:
+• Κωδικός: {{public_code}}
+• Ημερομηνία/Ώρα: {{date}} {{time}}
+• Θέσεις: {{num_seats}}
+
+Διαχείριση κρατήσεων: {{manage_url}}
+
+Αν δεν ζήτησες εσύ αυτή την ακύρωση, επικοινώνησε με το tickets@lappasproductions.gr.

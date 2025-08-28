@@ -21,13 +21,29 @@ const transporter = nodemailer.createTransport({
 type ReservationEmailType = "CREATED_ACTIVE" | "CREATED_ANAMONI";
 
 function renderTemplate(file: string, vars: Record<string, any>) {
-  const tplPath = path.join(__dirname, "email_templates", file);
-  const tpl = fs.readFileSync(tplPath, "utf8");
+  //const tplPath = path.join(__dirname, "email_templates", file);
+  const tpl = fs.readFileSync(file, "utf8");
   return Handlebars.compile(tpl)(vars); // -> string
 }
 
 async function makeQrPng(data: string): Promise<Buffer> {
   return QRCode.toBuffer(data, { type: "png", width: 300, margin: 1 });
+}
+
+function resolveTemplatePath(file: string) {
+  const candidates = [
+    path.join(process.cwd(), "email_templates", file),
+    path.join(process.cwd(), "src", "email_templates", file),
+    path.join(__dirname, "email_templates", file),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  throw new Error(
+    `Template not found. Searched: \n${candidates
+      .map((p) => " - " + p)
+      .join("\n")}`
+  );
 }
 
 export async function sendReservationEmail(payload: unknown) {
@@ -55,7 +71,7 @@ export async function sendReservationEmail(payload: unknown) {
 
   type Result = {
     ok: boolean;
-    code: "CREATED_ACTIVE" | "CREATED_PENDING";
+    code: "CREATED_ACTIVE" | "CREATED_PENDING" | "CREATED_CANCELED";
     info: string;
     person: Person;
     performance: Performance;
@@ -65,7 +81,7 @@ export async function sendReservationEmail(payload: unknown) {
 
   type Envelope = { result: Result };
 
-  const BASE_URL = "https://reservations.lappasproductions.gr";
+  const BASE_URL = "https://api.reservations.lappasproductions.gr";
 
   const data = { result: payload };
 
@@ -114,11 +130,14 @@ export async function sendReservationEmail(payload: unknown) {
   let textVars: Record<string, any> = { ...commonVars };
 
   if (statusCode === "CREATED_ACTIVE") {
-    templateNameHtml = "created_active.html";
-    templateNameTxt = "created_active.txt";
+    templateNameHtml = resolveTemplatePath("created_active.html");
+    templateNameTxt = resolveTemplatePath("created_active.txt");
+  } else if (statusCode === "CREATED_CANCELED") {
+    templateNameHtml = resolveTemplatePath("canceled_active.html");
+    templateNameTxt = resolveTemplatePath("canceled_active.txt");
   } else if (statusCode === "CREATED_PENDING") {
-    templateNameHtml = "created_pending.html";
-    templateNameTxt = "created_pending.txt";
+    templateNameHtml = resolveTemplatePath("created_pending.html");
+    templateNameTxt = resolveTemplatePath("created_pending.txt");
     htmlVars = {
       ...commonVars,
       existing_code: existing?.code ?? "",
@@ -133,6 +152,22 @@ export async function sendReservationEmail(payload: unknown) {
     throw new Error(`Unknown result.code: ${statusCode}`);
   }
 
+  let Emailsubject;
+  switch (statusCode) {
+    case "CREATED_ACTIVE": {
+      Emailsubject = `Επιβεβαίωση κράτησης #${public_code}`;
+      break;
+    }
+    case "CREATED_PENDING": {
+      Emailsubject = `Κράτηση σε αναμονή #${public_code}`;
+      break;
+    }
+    case "CREATED_CANCELED": {
+      Emailsubject = `Ακύρωση κράτησης #${public_code}`;
+      break;
+    }
+  }
+
   const html = renderTemplate(templateNameHtml, htmlVars);
   const text = renderTemplate(templateNameTxt, textVars);
 
@@ -140,10 +175,7 @@ export async function sendReservationEmail(payload: unknown) {
     from: '"Lappas Productions Tickets" <tickets@lappasproductions.gr>',
     to: person.email,
     replyTo: "tickets@lappasproductions.gr",
-    subject:
-      statusCode === "CREATED_ACTIVE"
-        ? `Επιβεβαίωση κράτησης #${public_code}`
-        : `Κράτηση σε αναμονή #${public_code}`,
+    subject: Emailsubject,
     html,
     text,
     attachments:
