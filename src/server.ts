@@ -161,12 +161,10 @@ app.get("/d/:id", async (req, res) => {
   const code = result.code;
   if (code === "CREATED_CANCELED") {
     sendReservationEmail(result);
-    res.send(result);
+    return res.send(result);
   } else if (code === "NO_RESERVATION") {
   } else if (code === "NO_PERMISSION") {
   }
-
-  res.send(result);
 });
 
 app.get("/health", (_req, res) => res.status(200).send("ok"));
