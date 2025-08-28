@@ -130,7 +130,7 @@ app.post("/createReservation", async (req, res) => {
 });
 
 // confirm a pending reservation
-app.post("/c/:id", async (req, res) => {
+app.get("/c/:id", async (req, res) => {
   const reservation_id = req.params.id;
 
   const { rows } = await pool.query(
@@ -149,7 +149,7 @@ app.post("/c/:id", async (req, res) => {
 });
 
 // cancel a pending reservation
-app.post("/r/:id", async (req, res) => {
+app.get("/r/:id", async (req, res) => {
   const reservation_id = req.params.id;
 
   const { rows } = await pool.query(
