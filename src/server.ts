@@ -149,7 +149,7 @@ app.get("/c/:id", async (req, res) => {
 });
 
 // cancel a pending reservation
-app.get("/r/:id", async (req, res) => {
+app.get("/d/:id", async (req, res) => {
   const reservation_id = req.params.id;
 
   const { rows } = await pool.query(
