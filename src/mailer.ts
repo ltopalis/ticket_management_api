@@ -133,8 +133,8 @@ export async function sendReservationEmail(payload: unknown) {
     templateNameHtml = resolveTemplatePath("created_active.html");
     templateNameTxt = resolveTemplatePath("created_active.txt");
   } else if (statusCode === "CREATED_CANCELED") {
-    templateNameHtml = resolveTemplatePath("canceled_active.html");
-    templateNameTxt = resolveTemplatePath("canceled_active.txt");
+    templateNameHtml = resolveTemplatePath("created_canceled.html");
+    templateNameTxt = resolveTemplatePath("created_canceled.txt");
   } else if (statusCode === "CREATED_PENDING") {
     templateNameHtml = resolveTemplatePath("created_pending.html");
     templateNameTxt = resolveTemplatePath("created_pending.txt");
