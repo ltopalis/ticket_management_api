@@ -5,11 +5,34 @@ import { Pool } from "pg";
 import { z } from "zod";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { sendReservationEmail } from "./mailer";
+import cors from "cors";
+
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "https://reservations.lappasproductions.gr",
+  // αν έχεις Netlify preview, πρόσθεσε κι αυτό π.χ. "https://your-site.netlify.app"
+];
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
+
+app.use(
+  cors({
+    origin(origin, cb) {
+      // επιτρέπουμε και tools (curl/postman) που δεν στέλνουν Origin
+      if (!origin) return cb(null, true);
+      return cb(null, ALLOWED_ORIGINS.includes(origin));
+    },
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: false, // βάλε true μόνο αν χρησιμοποιείς cookies/cred
+  })
+);
+
+// (προαιρετικό, αλλά χρήσιμο για preflight)
+app.options("*", cors());
 
 const UserSchema = z.object({
   name: z.string().trim().min(1).max(80),
