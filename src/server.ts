@@ -12,7 +12,7 @@ dotenv.config();
 const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "https://reservations.lappasproductions.gr",
-  "https://lappas-tickets.netlify.app/",
+  "https://lappas-tickets.netlify.app",
 ];
 
 const app = express();
