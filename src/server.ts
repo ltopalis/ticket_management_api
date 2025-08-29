@@ -4,6 +4,7 @@ import { Pool } from "pg";
 import { z } from "zod";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import cors from "cors";
+import { sendReservationEmail } from "./mailer";
 // import path from "path"; // (δεν χρησιμοποιείται)
 
 dotenv.config();
@@ -11,6 +12,7 @@ dotenv.config();
 const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "https://reservations.lappasproductions.gr",
+  "https://lappas-tickets.netlify.app/",
 ];
 
 const app = express();
@@ -28,8 +30,6 @@ app.use(
     credentials: false,
   })
 );
-// ✅ Δεν χρειάζεται αυτό — το cors κάνει register preflights μόνο του
-// app.options("*", cors()); // ❌ βγάλ' το (Express 5 σπάει με "*")
 
 // Schemas
 const UserSchema = z.object({
@@ -104,7 +104,7 @@ app.post("/createReservation", async (req, res) => {
 
     const code = result.code;
     if (code === "CREATED_ACTIVE" || code === "CREATED_PENDING") {
-      // προαιρετικά: await sendReservationEmail(result);
+      await sendReservationEmail(result);
       return res.status(200).json(result);
     }
     if (code === "DUPLICATE_SAME_DATETIME") return res.status(409).json(result);
@@ -140,7 +140,7 @@ app.get("/c/:id", async (req, res) => {
   );
   const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
   if (result.code === "CREATED_ACTIVE") {
-    // await sendReservationEmail(result);
+    await sendReservationEmail(result);
     return res.status(200).json(result);
   }
   return res.status(200).json(result);
@@ -156,7 +156,7 @@ app.get("/d/:id", async (req, res) => {
   const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
 
   if (result.code === "CREATED_CANCELED") {
-    // await sendReservationEmail(result);
+    await sendReservationEmail(result);
     return res.status(200).json(result);
   }
   if (result.code === "NO_RESERVATION") {
@@ -174,7 +174,7 @@ app.get("/getUpcomingProductions", async (_req, res) => {
     `SELECT public.get_upcoming_productions() as result`
   );
   const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
-  return res.status(200).json(result); // ✅ json παντού
+  return res.status(200).json(result);
 });
 
 app.get("/health", (_req, res) => res.status(200).send("ok"));
