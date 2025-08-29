@@ -177,6 +177,15 @@ app.get("/getUpcomingProductions", async (_req, res) => {
   return res.status(200).json(result);
 });
 
+app.post("/getProductionAvailability/:id", async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT public.get_production_availability($1::bigint) as result`,
+    [req.params.id]
+  );
+  const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
+  return res.status(200).json(result);
+});
+
 app.get("/health", (_req, res) => res.status(200).send("ok"));
 
 // ✅ Render: χρησιμοποίησε process.env.PORT
