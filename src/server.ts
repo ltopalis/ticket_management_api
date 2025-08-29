@@ -167,15 +167,13 @@ app.get("/d/:id", async (req, res) => {
   }
 });
 
-app.get("/getUpcomingProductions", (_req, res) => {
-  // const { rows } = await pool.query(
-  //   `SELECT public.get_upcoming_productions() as result`
-  // );
-  // const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
+app.get("/getUpcomingProductions", async (_req, res) => {
+  const { rows } = await pool.query(
+    `SELECT public.get_upcoming_productions() as result`
+  );
+  const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
 
-  // res.send(result);
-
-  return res.status(200).send("ok");
+  res.send(result);
 });
 
 app.get("/health", (_req, res) => res.status(200).send("ok"));
