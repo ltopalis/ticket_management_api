@@ -81,7 +81,7 @@ export async function sendReservationEmail(payload: unknown) {
 
   type Envelope = { result: Result };
 
-  const BASE_URL = "https://api.reservations.lappasproductions.gr";
+  const BASE_URL = process.env.BASE_URL;
 
   const data = { result: payload };
 
@@ -105,8 +105,6 @@ export async function sendReservationEmail(payload: unknown) {
   const num_seats = String(reservation.seats);
 
   const manage_url = `${BASE_URL}/r/${id}`;
-  const cancel_url = `${BASE_URL}/d/${id}`;
-  const confirm_url = `${BASE_URL}/c/${id}`;
 
   const qrBuffer = await makeQrPng(id);
 
@@ -144,8 +142,6 @@ export async function sendReservationEmail(payload: unknown) {
       existing_date: existing?.date ?? "",
       existing_time: existing?.time ?? "",
       existing_num_seats: existing ? String(existing.seats) : "",
-      cancel_url,
-      confirm_url,
     };
     textVars = htmlVars;
   } else {
