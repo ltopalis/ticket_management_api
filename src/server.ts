@@ -16,7 +16,7 @@ const ALLOWED_ORIGINS = [
   "https://lappas-tickets.netlify.app",
 ];
 
-const ca = fs.readFileSync("./certs/supabase-ca.crt").toString();
+const ca = fs.readFileSync("./certs/prod-ca-2021.crt").toString();
 
 const app = express();
 app.use(express.json());
