@@ -5,6 +5,7 @@ import { z } from "zod";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import cors from "cors";
 import { sendReservationEmail } from "./mailer";
+import fs from "fs";
 // import path from "path"; // (δεν χρησιμοποιείται)
 
 dotenv.config();
@@ -14,6 +15,8 @@ const ALLOWED_ORIGINS = [
   "https://reservations.lappasproductions.gr",
   "https://lappas-tickets.netlify.app",
 ];
+
+const ca = fs.readFileSync("./certs/supabase-ca.crt").toString();
 
 const app = express();
 app.use(express.json());
@@ -49,7 +52,14 @@ const baseDb = process.env.DB_URL
       port: Number(process.env.DB_PORT || 5432),
     };
 
-const pool = new Pool({ ...baseDb, ssl: { rejectUnauthorized: false } });
+const pool = new Pool({
+  ...baseDb,
+  ssl: {
+    ca,
+    rejectUnauthorized: true, // κάνε proper verification
+    servername: "aws-1-eu-central-2.pooler.supabase.com", // SNI, προαιρετικό
+  },
+});
 
 // Create reservation
 app.post("/createReservation", async (req, res) => {
