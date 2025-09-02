@@ -205,7 +205,7 @@ app.post("/getReservation/:id", async (req, res) => {
   return res.status(200).json(result);
 });
 
-app.get("/health", (_req, res) => res.status(200).send("ok, it works"));
+app.get("/health", (_req, res) => res.status(200).send("ok"));
 
 // ✅ Render: χρησιμοποίησε process.env.PORT
 const PORT = Number(process.env.PORT || 3000);
