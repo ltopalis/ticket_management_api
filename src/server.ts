@@ -286,6 +286,19 @@ app.post("/getReservation/:id", async (req, res) => {
 // Uptime/health
 app.get("/health", (_req, res) => res.status(200).send("ok"));
 
+// κάθε 10 λεπτά (600.000 ms) θα στέλνει request
+setInterval(() => {
+  fetch("https://api.reservations.lappasproductions.gr/health", {
+    method: "GET",
+  })
+    .then(() => {
+      console.log("Ping OK:", new Date().toLocaleTimeString());
+    })
+    .catch((err) => {
+      console.error("Ping failed:", err);
+    });
+}, 10 * 60 * 1000);
+
 // ✅ Render: process.env.PORT
 const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, () => {
