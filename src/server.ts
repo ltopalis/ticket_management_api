@@ -17,17 +17,21 @@ const ALLOWED_ORIGINS = [
   "https://lappas-tickets.netlify.app",
 ];
 
-const ca = fs.readFileSync("./certs/prod-ca-2021.crt").toString();
+// προσάρμοσε ανάλογα το path του cert αν χρειαστεί
+const ca = fs.existsSync("./certs/prod-ca-2021.crt")
+  ? fs.readFileSync("./certs/prod-ca-2021.crt").toString()
+  : undefined;
 
 const app = express();
+app.set("trust proxy", true); // για σωστό req.ip πίσω από proxy (Render/Netlify)
 app.use(express.json());
 
 // CORS
 app.use(
   cors({
     origin(origin, cb) {
-      if (!origin) return cb(null, true); // επιτρέπουμε curl/uptime
-      cb(null, ALLOWED_ORIGINS.includes(origin));
+      if (!origin) return cb(null, true); // επιτρέπουμε curl/uptime κ.λπ.
+      return cb(null, ALLOWED_ORIGINS.includes(origin));
     },
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -54,13 +58,17 @@ const baseDb = process.env.DB_URL
       port: Number(process.env.DB_PORT || 5432),
     };
 
+// Αν υπάρχει CA, ενεργοποιούμε SSL με proper verification.
+// Αν όχι (π.χ. τοπικά), αφήνουμε το SSL undefined ώστε να μην σκάει.
 const pool = new Pool({
   ...baseDb,
-  ssl: {
-    ca,
-    rejectUnauthorized: true,
-    servername: "aws-1-eu-central-2.pooler.supabase.com",
-  },
+  ssl: ca
+    ? {
+        ca,
+        rejectUnauthorized: true,
+        servername: "aws-1-eu-central-2.pooler.supabase.com",
+      }
+    : undefined,
 });
 
 // ===== Routes =====
@@ -91,16 +99,18 @@ app.post("/createReservation", async (req, res) => {
       });
     }
 
-    // reCAPTCHA v3 verify (χωρίς undefined σε optional props)
+    // reCAPTCHA v3 verify (optional αλλά συνιστάται)
     const recaptchaToken: string | undefined =
       (req.body?.recaptcha as string | undefined) ?? undefined;
+    const recaptchaActionFromBody: string | undefined =
+      (req.body?.recaptcha_action as string | undefined) ?? undefined;
 
     if (recaptchaToken) {
+      const expectedAction =
+        process.env.RECAPTCHA_EXPECTED_ACTION || recaptchaActionFromBody;
       const verify = await verifyRecaptchaV3(recaptchaToken, {
         ...(req.ip ? { remoteip: req.ip } : {}),
-        ...(process.env.RECAPTCHA_EXPECTED_ACTION
-          ? { expectedAction: process.env.RECAPTCHA_EXPECTED_ACTION }
-          : {}),
+        ...(expectedAction ? { expectedAction } : {}),
       });
 
       if (!verify.ok) {
@@ -237,6 +247,7 @@ app.get("/getUpcomingProductions", async (_req, res) => {
   }
 });
 
+// Availability για production
 app.post("/getProductionAvailability/:id", async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -254,6 +265,7 @@ app.post("/getProductionAvailability/:id", async (req, res) => {
   }
 });
 
+// Μία κράτηση
 app.post("/getReservation/:id", async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -271,6 +283,7 @@ app.post("/getReservation/:id", async (req, res) => {
   }
 });
 
+// Uptime/health
 app.get("/health", (_req, res) => res.status(200).send("ok"));
 
 // ✅ Render: process.env.PORT

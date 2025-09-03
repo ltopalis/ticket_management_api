@@ -2,13 +2,14 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-/** Προαιρετικά opts για verify */
-export type VerifyOptions = Partial<{
-  remoteip: string;
-  expectedAction: string;
-}>;
+/** Optional verify options (μην περνάς undefined αν έχεις enabled exactOptionalPropertyTypes) */
+export type VerifyOptions = {
+  remoteip?: string;
+  expectedAction?: string;
+  timeoutMs?: number; // default 10000ms
+};
 
-/** Αποτέλεσμα verify — προσοχή: χωρίς undefined στα optional (exactOptionalPropertyTypes) */
+/** Αποτέλεσμα verify — χωρίς undefined σε optional keys */
 export type RecaptchaVerifyResult =
   | ({ ok: true } & Partial<{
       score: number;
@@ -19,6 +20,16 @@ export type RecaptchaVerifyResult =
       ok: false;
       reasons: string[];
     } & Partial<{ score: number; action: string; hostname: string }>);
+
+/** Google verify response (χωρίς any) */
+interface GoogleVerifyResponse {
+  success: boolean;
+  score?: number;
+  action?: string;
+  hostname?: string;
+  challenge_ts?: string;
+  "error-codes"?: string[];
+}
 
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET_KEY || "";
 const RECAPTCHA_MIN_SCORE = Number(process.env.RECAPTCHA_MIN_SCORE ?? "0.5");
@@ -49,7 +60,13 @@ export async function verifyRecaptchaV3(
   params.set("response", token);
   if (opts?.remoteip) params.set("remoteip", opts.remoteip);
 
-  let json: any;
+  // Timeout-aware fetch
+  const timeoutMs =
+    typeof opts?.timeoutMs === "number" ? opts!.timeoutMs : 10000;
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), timeoutMs);
+
+  let json: GoogleVerifyResponse | undefined;
   try {
     const resp = await fetch(
       "https://www.google.com/recaptcha/api/siteverify",
@@ -57,24 +74,30 @@ export async function verifyRecaptchaV3(
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: params.toString(),
+        signal: ac.signal,
       }
     );
-    json = await resp.json();
-  } catch {
+    json = (await resp.json()) as GoogleVerifyResponse;
+  } catch (e: any) {
+    clearTimeout(t);
+    if (e?.name === "AbortError") {
+      return { ok: false, reasons: ["verify_timeout"] };
+    }
     return { ok: false, reasons: ["verify_request_failed"] };
+  } finally {
+    clearTimeout(t);
   }
 
   const success = !!json?.success;
-  const score: number | undefined =
-    typeof json?.score === "number" ? json.score : undefined;
-  const action: string | undefined =
-    typeof json?.action === "string" ? json.action : undefined;
-  const hostname: string | undefined =
+  const score = typeof json?.score === "number" ? json.score : undefined;
+  const action = typeof json?.action === "string" ? json.action : undefined;
+  const hostname =
     typeof json?.hostname === "string" ? json.hostname : undefined;
   const errorCodes: string[] = Array.isArray(json?.["error-codes"])
-    ? json["error-codes"]
+    ? json!["error-codes"]!
     : [];
 
+  // Βοηθητικά spreads για να ΜΗΝ στείλουμε undefined keys
   const maybeScore = typeof score === "number" ? { score } : {};
   const maybeAction = action ? { action } : {};
   const maybeHostname = hostname ? { hostname } : {};
@@ -89,9 +112,10 @@ export async function verifyRecaptchaV3(
     };
   }
 
+  // Action check (env έχει προτεραιότητα, μετά ό,τι μας έδωσε ο caller)
   const expected = (
-    opts?.expectedAction ||
     RECAPTCHA_EXPECTED_ACTION ||
+    opts?.expectedAction ||
     ""
   ).trim();
   if (expected && action !== expected) {
@@ -105,11 +129,10 @@ export async function verifyRecaptchaV3(
   }
 
   if (typeof score === "number" && score < RECAPTCHA_MIN_SCORE) {
-    // εδώ το score είναι σίγουρα number, οπότε μπορούμε να το περάσουμε
     return {
       ok: false,
       reasons: ["low_score"],
-      score,
+      score, // γνωρίζουμε ότι είναι number εδώ
       ...maybeAction,
       ...maybeHostname,
     };
