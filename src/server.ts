@@ -1,12 +1,13 @@
+// src/server.ts
 import dotenv from "dotenv";
 import express from "express";
 import { Pool } from "pg";
 import { z } from "zod";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import cors from "cors";
-import { sendReservationEmail } from "./mailer";
 import fs from "fs";
-// import path from "path"; // (δεν χρησιμοποιείται)
+import { sendReservationEmail } from "./mailer";
+import { verifyRecaptchaV3 } from "./recaptcha";
 
 dotenv.config();
 
@@ -21,12 +22,12 @@ const ca = fs.readFileSync("./certs/prod-ca-2021.crt").toString();
 const app = express();
 app.use(express.json());
 
-// CORS (πριν από τα routes)
+// CORS
 app.use(
   cors({
     origin(origin, cb) {
       if (!origin) return cb(null, true); // επιτρέπουμε curl/uptime
-      return cb(null, ALLOWED_ORIGINS.includes(origin));
+      cb(null, ALLOWED_ORIGINS.includes(origin));
     },
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -34,14 +35,15 @@ app.use(
   })
 );
 
-// Schemas
+// ===== Schemas =====
 const UserSchema = z.object({
   name: z.string().trim().min(1).max(80),
   surname: z.string().trim().min(1).max(80),
-  email: z.string().trim().email("Invalid email"), // κάν' το required αφού το χρειάζεσαι για email
+  email: z.string().trim().email("Invalid email"),
   phone: z.string().trim(),
 });
 
+// ===== DB =====
 const baseDb = process.env.DB_URL
   ? { connectionString: process.env.DB_URL }
   : {
@@ -56,10 +58,12 @@ const pool = new Pool({
   ...baseDb,
   ssl: {
     ca,
-    rejectUnauthorized: true, // κάνε proper verification
-    servername: "aws-1-eu-central-2.pooler.supabase.com", // SNI, προαιρετικό
+    rejectUnauthorized: true,
+    servername: "aws-1-eu-central-2.pooler.supabase.com",
   },
 });
+
+// ===== Routes =====
 
 // Create reservation
 app.post("/createReservation", async (req, res) => {
@@ -87,6 +91,28 @@ app.post("/createReservation", async (req, res) => {
       });
     }
 
+    // reCAPTCHA v3 verify (χωρίς undefined σε optional props)
+    const recaptchaToken: string | undefined =
+      (req.body?.recaptcha as string | undefined) ?? undefined;
+
+    if (recaptchaToken) {
+      const verify = await verifyRecaptchaV3(recaptchaToken, {
+        ...(req.ip ? { remoteip: req.ip } : {}),
+        ...(process.env.RECAPTCHA_EXPECTED_ACTION
+          ? { expectedAction: process.env.RECAPTCHA_EXPECTED_ACTION }
+          : {}),
+      });
+
+      if (!verify.ok) {
+        return res.status(200).json({
+          ok: false,
+          code: "RECAPTCHA_FAILED",
+          info: "Η επαλήθευση ασφαλείας δεν ολοκληρώθηκε.",
+          meta: verify,
+        });
+      }
+    }
+
     const payload = {
       user: {
         name: parsed.data.name,
@@ -108,7 +134,7 @@ app.post("/createReservation", async (req, res) => {
 
     const { rows } = await pool.query(
       `select public.create_reservation_from_json($1::jsonb) as result`,
-      [JSON.stringify(payload)] // ✅ stringify
+      [JSON.stringify(payload)]
     );
     const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
 
@@ -143,71 +169,111 @@ app.post("/createReservation", async (req, res) => {
 
 // Confirm pending
 app.get("/c/:id", async (req, res) => {
-  const reservation_id = req.params.id;
-  const { rows } = await pool.query(
-    `select public.confirm_reservation($1::text, $2::boolean) as result`,
-    [reservation_id, false]
-  );
-  const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
-  if (result.code === "CREATED_ACTIVE") {
-    await sendReservationEmail(result);
+  try {
+    const reservation_id = req.params.id;
+    const { rows } = await pool.query(
+      `select public.confirm_reservation($1::text, $2::boolean) as result`,
+      [reservation_id, false]
+    );
+    const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
+    if (result.code === "CREATED_ACTIVE") {
+      await sendReservationEmail(result);
+      return res.status(200).json(result);
+    }
     return res.status(200).json(result);
+  } catch {
+    return res.status(500).json({
+      ok: false,
+      status: "SERVER_ERROR",
+      info: "Αποτυχία επιβεβαίωσης κράτησης",
+    });
   }
-  return res.status(200).json(result);
 });
 
 // Cancel pending
 app.get("/d/:id", async (req, res) => {
-  const reservation_id = req.params.id;
-  const { rows } = await pool.query(
-    `select public.cancel_reservation($1::text, $2::boolean) as result`,
-    [reservation_id, false]
-  );
-  const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
+  try {
+    const reservation_id = req.params.id;
+    const { rows } = await pool.query(
+      `select public.cancel_reservation($1::text, $2::boolean) as result`,
+      [reservation_id, false]
+    );
+    const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
 
-  if (result.code === "CREATED_CANCELED") {
-    await sendReservationEmail(result);
-    return res.status(200).json(result);
+    if (result.code === "CREATED_CANCELED") {
+      await sendReservationEmail(result);
+      return res.status(200).json(result);
+    }
+    if (result.code === "NO_RESERVATION") {
+      return res.status(404).json(result);
+    }
+    if (result.code === "NO_PERMISSION") {
+      return res.status(403).json(result);
+    }
+    return res.status(400).json(result);
+  } catch {
+    return res.status(500).json({
+      ok: false,
+      status: "SERVER_ERROR",
+      info: "Αποτυχία ακύρωσης κράτησης",
+    });
   }
-  if (result.code === "NO_RESERVATION") {
-    return res.status(404).json(result);
-  }
-  if (result.code === "NO_PERMISSION") {
-    return res.status(403).json(result);
-  }
-  return res.status(400).json(result);
 });
 
 // Upcoming list
 app.get("/getUpcomingProductions", async (_req, res) => {
-  const { rows } = await pool.query(
-    `SELECT public.get_upcoming_productions() as result`
-  );
-  const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
-  return res.status(200).json(result);
+  try {
+    const { rows } = await pool.query(
+      `SELECT public.get_upcoming_productions() as result`
+    );
+    const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
+    return res.status(200).json(result);
+  } catch {
+    return res.status(500).json({
+      ok: false,
+      status: "SERVER_ERROR",
+      info: "Αποτυχία φόρτωσης λίστας",
+    });
+  }
 });
 
 app.post("/getProductionAvailability/:id", async (req, res) => {
-  const { rows } = await pool.query(
-    `SELECT public.get_production_availability($1::bigint) as result`,
-    [req.params.id]
-  );
-  const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
-  return res.status(200).json(result);
+  try {
+    const { rows } = await pool.query(
+      `SELECT public.get_production_availability($1::bigint) as result`,
+      [req.params.id]
+    );
+    const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
+    return res.status(200).json(result);
+  } catch {
+    return res.status(500).json({
+      ok: false,
+      status: "SERVER_ERROR",
+      info: "Αποτυχία φόρτωσης διαθεσιμότητας",
+    });
+  }
 });
 
 app.post("/getReservation/:id", async (req, res) => {
-  const { rows } = await pool.query(
-    `SELECT public.getReservation($1::uuid) as result`,
-    [req.params.id]
-  );
-  const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
-  return res.status(200).json(result);
+  try {
+    const { rows } = await pool.query(
+      `SELECT public.getReservation($1::uuid) as result`,
+      [req.params.id]
+    );
+    const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
+    return res.status(200).json(result);
+  } catch {
+    return res.status(500).json({
+      ok: false,
+      status: "SERVER_ERROR",
+      info: "Αποτυχία φόρτωσης κράτησης",
+    });
+  }
 });
 
 app.get("/health", (_req, res) => res.status(200).send("ok"));
 
-// ✅ Render: χρησιμοποίησε process.env.PORT
+// ✅ Render: process.env.PORT
 const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, () => {
   console.log(`Server running on :${PORT}`);
