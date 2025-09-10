@@ -283,6 +283,10 @@ app.post("/getReservation/:id", async (req, res) => {
   }
 });
 
+app.post("/login", (req, res) => {
+  res.status(200).send(req.body);
+});
+
 // Uptime/health
 app.get("/health", (_req, res) => res.status(200).send("ok"));
 
