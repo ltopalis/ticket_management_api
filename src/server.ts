@@ -9,6 +9,7 @@ import fs from "fs";
 import { sendReservationEmail } from "./mailer";
 import { verifyRecaptchaV3 } from "./recaptcha";
 import bcrypt from "bcryptjs";
+import session from "express-session";
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 const salt = "$2a$10$CwTycUXWue0Thq9StjUM0u";
+const cookie_name = "user-data";
 
 // προσάρμοσε ανάλογα το path του cert αν χρειαστεί
 const ca = fs.existsSync("./certs/prod-ca-2021.crt")
@@ -28,6 +30,14 @@ const ca = fs.existsSync("./certs/prod-ca-2021.crt")
 const app = express();
 app.set("trust proxy", true); // για σωστό req.ip πίσω από proxy (Render/Netlify)
 app.use(express.json());
+app.use(
+  session({
+    name: cookie_name,
+    secret: "secret-key",
+    cookie: { maxAge: 1000 * 60 * 30 }, // 30 minutes
+    saveUninitialized: false,
+  })
+);
 
 // CORS
 app.use(
@@ -309,6 +319,11 @@ app.post("/login", async (req, res) => {
       ok: false,
       status: "SERVER_ERROR",
     };
+
+    if (result.ok) {
+      return res.send(req.session);
+    }
+
     return res.status(200).send(result);
   } catch {
     return res.status(500).json({
