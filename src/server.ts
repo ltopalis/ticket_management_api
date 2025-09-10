@@ -297,14 +297,13 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    const password = bcrypt.hashSync(req.body.password, salt);
+    // const password = bcrypt.hashSync(req.body.password, salt);
+    const password = req.body.password;
 
     const { rows } = await pool.query(
       `SELECT public.api_login_by_phone($1::TEXT, $2::TEXT)`,
       [phoneParsed.number, password]
     );
-
-    return res.send(rows);
 
     const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
     return res.status(200).send(result);
