@@ -16,6 +16,7 @@ const ALLOWED_ORIGINS = [
   "https://reservations.lappasproductions.gr",
   "https://lappas-tickets.netlify.app",
   "https://console.lappasproductions.gr",
+  "https://console-lappas.netlify.app",
 ];
 
 // προσάρμοσε ανάλογα το path του cert αν χρειαστεί
