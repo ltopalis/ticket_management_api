@@ -305,8 +305,11 @@ app.post("/login", async (req, res) => {
       [phoneParsed.number, password]
     );
 
-    const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
-    return res.status(200).send(rows[0]);
+    const result = rows[0]?.api_login_by_phone ?? {
+      ok: false,
+      status: "SERVER_ERROR",
+    };
+    return res.status(200).send(result);
   } catch {
     return res.status(500).json({
       ok: false,
