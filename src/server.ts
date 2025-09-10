@@ -8,6 +8,7 @@ import cors from "cors";
 import fs from "fs";
 import { sendReservationEmail } from "./mailer";
 import { verifyRecaptchaV3 } from "./recaptcha";
+import bcrypt from "bcryptjs";
 
 dotenv.config();
 
@@ -16,6 +17,8 @@ const ALLOWED_ORIGINS = [
   "https://reservations.lappasproductions.gr",
   "https://lappas-tickets.netlify.app",
 ];
+
+const salt = "$2a$10$CwTycUXWue0Thq9StjUM0u";
 
 // προσάρμοσε ανάλογα το path του cert αν χρειαστεί
 const ca = fs.existsSync("./certs/prod-ca-2021.crt")
@@ -285,7 +288,7 @@ app.post("/getReservation/:id", async (req, res) => {
 
 app.post("/login", async (req, res) => {
   try {
-    const phoneParsed = parsePhoneNumberFromString(req.body.phone, "GR");
+    const phoneParsed = parsePhoneNumberFromString(req.body.username, "GR");
     if (!phoneParsed || !phoneParsed.isValid()) {
       return res.status(400).json({
         ok: false,
@@ -294,7 +297,9 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    const password = req.body.password;
+    const password = bcrypt.hashSync(req.body.password, salt);
+
+    return res.send({ password, phoneParsed });
 
     const { rows } = await pool.query(
       `SELECT public.api_login_by_phone($1::TEXT, $2::TEXT)`,
