@@ -8,7 +8,6 @@ import cors from "cors";
 import fs from "fs";
 import { sendReservationEmail } from "./mailer";
 import { verifyRecaptchaV3 } from "./recaptcha";
-import bcrypt from "bcryptjs";
 
 dotenv.config();
 
@@ -19,8 +18,6 @@ const ALLOWED_ORIGINS = [
   "https://console.lappasproductions.gr",
 ];
 
-// const salt = "$2a$10$CwTycUXWue0Thq9StjUM0u"; // (αν το θες για client-side hashing)
-
 // προσάρμοσε ανάλογα το path του cert αν χρειαστεί
 const ca = fs.existsSync("./certs/prod-ca-2021.crt")
   ? fs.readFileSync("./certs/prod-ca-2021.crt").toString()
@@ -28,10 +25,10 @@ const ca = fs.existsSync("./certs/prod-ca-2021.crt")
 
 const app = express();
 
-app.set("trust proxy", 1); // για σωστό req.ip πίσω από proxy & Secure cookies
+app.set("trust proxy", 1); // για σωστό req.ip πίσω από proxy
 app.use(express.json());
 
-// --- CORS ---
+// --- CORS (χωρίς cookies/sessions) ---
 const corsOptions: cors.CorsOptions = {
   origin(origin, cb) {
     // επιτρέπουμε curl/uptime κ.λπ. που δεν στέλνουν Origin
@@ -39,12 +36,13 @@ const corsOptions: cors.CorsOptions = {
     if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
     return cb(new Error("Not allowed by CORS"));
   },
-  credentials: true, // ΑΠΑΡΑΙΤΗΤΟ για cookies
+  credentials: false, // ✅ δεν στέλνουμε/χρησιμοποιούμε cookies
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
 };
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // preflight με τα ίδια headers
+// προαιρετικό: αν θες ρητά preflight, χρησιμοποίησε regex και ΟΧΙ "*"
+// app.options(/.*/, cors(corsOptions));
 
 // ===== Schemas =====
 const UserSchema = z.object({
@@ -296,7 +294,7 @@ app.post("/getReservation/:id", async (req, res) => {
   }
 });
 
-// --- LOGIN (με sessions) ---
+// --- LOGIN (stateless, χωρίς session) ---
 app.post("/login", async (req, res) => {
   try {
     const phoneParsed = parsePhoneNumberFromString(req.body.username, "GR");
@@ -321,10 +319,8 @@ app.post("/login", async (req, res) => {
 
     if (!r?.ok) return res.status(401).json(r);
 
-    // Αποθήκευση ελάχιστων δεδομένων στο session (server-side)
-
-    // Το Set-Cookie(header) θα σταλεί αυτόματα από το express-session
-    return res.status(200).json({ ok: true, msg: "OK", user: r.user });
+    // ✅ Stateless: απάντησε με το πλήρες JSON (ο client το κρατάει τοπικά)
+    return res.status(200).json(r);
   } catch (e) {
     console.error(e);
     return res.status(500).json({
