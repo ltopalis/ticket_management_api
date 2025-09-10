@@ -299,11 +299,9 @@ app.post("/login", async (req, res) => {
 
     const password = bcrypt.hashSync(req.body.password, salt);
 
-    return res.send({ password, phoneParsed });
-
     const { rows } = await pool.query(
       `SELECT public.api_login_by_phone($1::TEXT, $2::TEXT)`,
-      [phoneParsed, password]
+      [phoneParsed.number, password]
     );
 
     const result = rows[0]?.result ?? { ok: false, statsu: "SERVER_ERROR" };
