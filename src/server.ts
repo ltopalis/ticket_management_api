@@ -10,6 +10,7 @@ import { sendReservationEmail } from "./mailer";
 import { verifyRecaptchaV3 } from "./recaptcha";
 import bcrypt from "bcryptjs";
 import session from "express-session";
+import pgSession from "connect-pg-simple";
 
 dotenv.config();
 
@@ -17,10 +18,10 @@ const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "https://reservations.lappasproductions.gr",
   "https://lappas-tickets.netlify.app",
+  "https://console.lappasproductions.gr",
 ];
 
-const salt = "$2a$10$CwTycUXWue0Thq9StjUM0u";
-const cookie_name = "user-data";
+// const salt = "$2a$10$CwTycUXWue0Thq9StjUM0u"; // (αν το θες για client-side hashing)
 
 // προσάρμοσε ανάλογα το path του cert αν χρειαστεί
 const ca = fs.existsSync("./certs/prod-ca-2021.crt")
@@ -28,29 +29,27 @@ const ca = fs.existsSync("./certs/prod-ca-2021.crt")
   : undefined;
 
 const app = express();
-app.set("trust proxy", true); // για σωστό req.ip πίσω από proxy (Render/Netlify)
-app.use(express.json());
-app.use(
-  session({
-    name: cookie_name,
-    secret: "secret-key",
-    cookie: { maxAge: 1000 * 60 * 30 }, // 30 minutes
-    saveUninitialized: false,
-  })
-);
+const PgSession = pgSession(session);
 
-// CORS
-app.use(
-  cors({
-    origin(origin, cb) {
-      if (!origin) return cb(null, true); // επιτρέπουμε curl/uptime κ.λπ.
-      return cb(null, ALLOWED_ORIGINS.includes(origin));
-    },
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: false,
-  })
-);
+const isProd = process.env.NODE_ENV === "production";
+
+app.set("trust proxy", 1); // για σωστό req.ip πίσω από proxy & Secure cookies
+app.use(express.json());
+
+// --- CORS ---
+const corsOptions: cors.CorsOptions = {
+  origin(origin, cb) {
+    // επιτρέπουμε curl/uptime κ.λπ. που δεν στέλνουν Origin
+    if (!origin) return cb(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    return cb(new Error("Not allowed by CORS"));
+  },
+  credentials: true, // ΑΠΑΡΑΙΤΗΤΟ για cookies
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
+};
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // preflight με τα ίδια headers
 
 // ===== Schemas =====
 const UserSchema = z.object({
@@ -83,6 +82,31 @@ const pool = new Pool({
       }
     : undefined,
 });
+
+// --- Sessions (Postgres store) ---
+app.use(
+  session({
+    store: new PgSession({
+      pool, // Postgres pool
+      tableName: "session", // προεπιλογή: "session"
+      createTableIfMissing: true, // να φτιάξει τον πίνακα αν λείπει
+      pruneSessionInterval: 60, // καθάρισμα expired (sec)
+    }),
+    name: "sid",
+    secret: process.env.SESSION_SECRET || "change-me",
+    resave: false,
+    saveUninitialized: false,
+    rolling: true, // ανανέωση maxAge σε κάθε request
+    cookie: {
+      httpOnly: true,
+      secure: isProd, // true σε https/prod
+      sameSite: isProd ? ("none" as const) : ("lax" as const), // cross-site prod
+      domain: isProd ? ".lappasproductions.gr" : undefined, // κοινό σε subdomains
+      path: "/",
+      maxAge: 1000 * 60 * 30, // 30'
+    },
+  })
+);
 
 // ===== Routes =====
 
@@ -182,6 +206,7 @@ app.post("/createReservation", async (req, res) => {
 
     return res.status(400).json(result);
   } catch (err) {
+    console.error(err);
     return res.status(500).json({
       ok: false,
       status: "SERVER_ERROR",
@@ -204,7 +229,8 @@ app.get("/c/:id", async (req, res) => {
       return res.status(200).json(result);
     }
     return res.status(200).json(result);
-  } catch {
+  } catch (e) {
+    console.error(e);
     return res.status(500).json({
       ok: false,
       status: "SERVER_ERROR",
@@ -234,7 +260,8 @@ app.get("/d/:id", async (req, res) => {
       return res.status(403).json(result);
     }
     return res.status(400).json(result);
-  } catch {
+  } catch (e) {
+    console.error(e);
     return res.status(500).json({
       ok: false,
       status: "SERVER_ERROR",
@@ -251,7 +278,8 @@ app.get("/getUpcomingProductions", async (_req, res) => {
     );
     const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
     return res.status(200).json(result);
-  } catch {
+  } catch (e) {
+    console.error(e);
     return res.status(500).json({
       ok: false,
       status: "SERVER_ERROR",
@@ -269,7 +297,8 @@ app.post("/getProductionAvailability/:id", async (req, res) => {
     );
     const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
     return res.status(200).json(result);
-  } catch {
+  } catch (e) {
+    console.error(e);
     return res.status(500).json({
       ok: false,
       status: "SERVER_ERROR",
@@ -287,7 +316,8 @@ app.post("/getReservation/:id", async (req, res) => {
     );
     const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
     return res.status(200).json(result);
-  } catch {
+  } catch (e) {
+    console.error(e);
     return res.status(500).json({
       ok: false,
       status: "SERVER_ERROR",
@@ -296,6 +326,7 @@ app.post("/getReservation/:id", async (req, res) => {
   }
 });
 
+// --- LOGIN (με sessions) ---
 app.post("/login", async (req, res) => {
   try {
     const phoneParsed = parsePhoneNumberFromString(req.body.username, "GR");
@@ -307,27 +338,41 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    // const password = bcrypt.hashSync(req.body.password, salt);
-    const password = req.body.password;
+    // Δέξου είτε plain είτε προ-υπολογισμένο hash από τον client
+    const passwordOrHash: string =
+      (req.body.passwordHash as string) ?? (req.body.password as string);
 
     const { rows } = await pool.query(
-      `SELECT public.api_login_by_phone($1::TEXT, $2::TEXT)`,
-      [phoneParsed.number, password]
+      `SELECT public.api_login_by_phone($1::TEXT, $2::TEXT) AS r`,
+      [phoneParsed.number, passwordOrHash]
     );
 
-    const result = rows[0]?.api_login_by_phone ?? {
-      ok: false,
-      status: "SERVER_ERROR",
-    };
+    const r = rows[0]?.r ?? { ok: false, status: "SERVER_ERROR" };
 
-    return res.status(200).send(result);
-  } catch {
+    if (!r?.ok) return res.status(401).json(r);
+
+    // Αποθήκευση ελάχιστων δεδομένων στο session (server-side)
+    req.session.login = r;
+
+    // Το Set-Cookie(header) θα σταλεί αυτόματα από το express-session
+    return res.status(200).json({ ok: true, msg: "OK", user: r.user });
+  } catch (e) {
+    console.error(e);
     return res.status(500).json({
       ok: false,
       status: "SERVER_ERROR",
-      info: "Αποτυχία φόρτωσης κράτησης",
+      info: "Αποτυχία σύνδεσης",
     });
   }
+});
+
+// --- Current user ---
+app.get("/me/full", (req, res) => {
+  const payload = req.session.login;
+  if (!payload)
+    return res.status(401).json({ ok: false, msg: "Not authenticated" });
+  // Προαιρετικά: ανανέωσε από DB αν φοβάσαι παλιότητα δεδομένων
+  return res.json(payload);
 });
 
 // Uptime/health
