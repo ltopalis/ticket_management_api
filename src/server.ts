@@ -320,10 +320,6 @@ app.post("/login", async (req, res) => {
       status: "SERVER_ERROR",
     };
 
-    if (result.ok) {
-      return res.send(req.session);
-    }
-
     return res.status(200).send(result);
   } catch {
     return res.status(500).json({
