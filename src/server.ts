@@ -283,8 +283,33 @@ app.post("/getReservation/:id", async (req, res) => {
   }
 });
 
-app.post("/login", (req, res) => {
-  res.status(200).send(req.body);
+app.post("/login", async (req, res) => {
+  try {
+    const phoneParsed = parsePhoneNumberFromString(req.body.phone, "GR");
+    if (!phoneParsed || !phoneParsed.isValid()) {
+      return res.status(400).json({
+        ok: false,
+        status: "INVALID_PHONE",
+        info: "Μη έγκυρη μορφή τηλεφώνου",
+      });
+    }
+
+    const password = req.body.password;
+
+    const { rows } = await pool.query(
+      `SELECT public.api_login_by_phone($1::TEXT, $2::TEXT)`,
+      [phoneParsed, password]
+    );
+
+    const result = rows[0]?.result ?? { ok: false, statsu: "SERVER_ERROR" };
+    return res.status(200).send(result);
+  } catch {
+    return res.status(500).json({
+      ok: false,
+      status: "SERVER_ERROR",
+      info: "Αποτυχία φόρτωσης κράτησης",
+    });
+  }
 });
 
 // Uptime/health
