@@ -306,7 +306,7 @@ app.post("/login", async (req, res) => {
     );
 
     const result = rows[0]?.result ?? { ok: false, status: "SERVER_ERROR" };
-    return res.status(200).send(result);
+    return res.status(200).send(rows[0]);
   } catch {
     return res.status(500).json({
       ok: false,
