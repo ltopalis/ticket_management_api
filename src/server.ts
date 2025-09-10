@@ -9,8 +9,6 @@ import fs from "fs";
 import { sendReservationEmail } from "./mailer";
 import { verifyRecaptchaV3 } from "./recaptcha";
 import bcrypt from "bcryptjs";
-import session from "express-session";
-import pgSession from "connect-pg-simple";
 
 dotenv.config();
 
@@ -29,9 +27,6 @@ const ca = fs.existsSync("./certs/prod-ca-2021.crt")
   : undefined;
 
 const app = express();
-const PgSession = pgSession(session);
-
-const isProd = process.env.NODE_ENV === "production";
 
 app.set("trust proxy", 1); // για σωστό req.ip πίσω από proxy & Secure cookies
 app.use(express.json());
@@ -82,31 +77,6 @@ const pool = new Pool({
       }
     : undefined,
 });
-
-// --- Sessions (Postgres store) ---
-app.use(
-  session({
-    store: new PgSession({
-      pool, // Postgres pool
-      tableName: "session", // προεπιλογή: "session"
-      createTableIfMissing: true, // να φτιάξει τον πίνακα αν λείπει
-      pruneSessionInterval: 60, // καθάρισμα expired (sec)
-    }),
-    name: "sid",
-    secret: process.env.SESSION_SECRET || "change-me",
-    resave: false,
-    saveUninitialized: false,
-    rolling: true, // ανανέωση maxAge σε κάθε request
-    cookie: {
-      httpOnly: true,
-      secure: isProd, // true σε https/prod
-      sameSite: isProd ? ("none" as const) : ("lax" as const), // cross-site prod
-      domain: isProd ? ".lappasproductions.gr" : undefined, // κοινό σε subdomains
-      path: "/",
-      maxAge: 1000 * 60 * 30, // 30'
-    },
-  })
-);
 
 // ===== Routes =====
 
@@ -352,7 +322,6 @@ app.post("/login", async (req, res) => {
     if (!r?.ok) return res.status(401).json(r);
 
     // Αποθήκευση ελάχιστων δεδομένων στο session (server-side)
-    req.session.login = r;
 
     // Το Set-Cookie(header) θα σταλεί αυτόματα από το express-session
     return res.status(200).json({ ok: true, msg: "OK", user: r.user });
@@ -364,15 +333,6 @@ app.post("/login", async (req, res) => {
       info: "Αποτυχία σύνδεσης",
     });
   }
-});
-
-// --- Current user ---
-app.get("/me/full", (req, res) => {
-  const payload = req.session.login;
-  if (!payload)
-    return res.status(401).json({ ok: false, msg: "Not authenticated" });
-  // Προαιρετικά: ανανέωσε από DB αν φοβάσαι παλιότητα δεδομένων
-  return res.json(payload);
 });
 
 // Uptime/health
