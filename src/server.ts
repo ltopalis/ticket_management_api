@@ -156,8 +156,6 @@ app.post("/createReservation", async (req, res) => {
 
     const code = result.code;
     if (code === "CREATED_ACTIVE" || code === "CREATED_PENDING") {
-      console.log("GOOD JOB");
-      console.log(code);
       await sendReservationEmail(result);
       return res.status(200).json(result);
     }

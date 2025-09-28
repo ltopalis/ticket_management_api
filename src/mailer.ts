@@ -82,7 +82,6 @@ export async function sendReservationEmail(payload: unknown) {
   type Envelope = { result: Result };
 
   const BASE_URL = process.env.BASE_URL;
-  console.log(BASE_URL);
 
   const data = { result: payload };
 
@@ -127,6 +126,8 @@ export async function sendReservationEmail(payload: unknown) {
   let templateNameTxt: string;
   let htmlVars: Record<string, any> = { ...commonVars };
   let textVars: Record<string, any> = { ...commonVars };
+
+  console.log("FINE");
 
   if (statusCode === "CREATED_ACTIVE") {
     templateNameHtml = resolveTemplatePath("created_active.html");
