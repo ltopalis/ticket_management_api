@@ -82,6 +82,7 @@ export async function sendReservationEmail(payload: unknown) {
   type Envelope = { result: Result };
 
   const BASE_URL = process.env.BASE_URL;
+  console.log(BASE_URL);
 
   const data = { result: payload };
 
