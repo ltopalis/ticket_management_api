@@ -127,8 +127,6 @@ export async function sendReservationEmail(payload: unknown) {
   let htmlVars: Record<string, any> = { ...commonVars };
   let textVars: Record<string, any> = { ...commonVars };
 
-  console.log("FINE");
-
   if (statusCode === "CREATED_ACTIVE") {
     templateNameHtml = resolveTemplatePath("created_active.html");
     templateNameTxt = resolveTemplatePath("created_active.txt");
@@ -168,6 +166,8 @@ export async function sendReservationEmail(payload: unknown) {
 
   const html = renderTemplate(templateNameHtml, htmlVars);
   const text = renderTemplate(templateNameTxt, textVars);
+
+  console.log("FINE");
 
   await transporter.sendMail({
     from: '"Lappas Productions Tickets" <tickets@lappasproductions.gr>',
