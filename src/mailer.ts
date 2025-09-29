@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import path from "path";
 import fs from "fs";
 import Handlebars from "handlebars";
+import { Resend } from "resend";
 
 dotenv.config();
 
@@ -167,18 +168,28 @@ export async function sendReservationEmail(payload: unknown) {
   const html = renderTemplate(templateNameHtml, htmlVars);
   const text = renderTemplate(templateNameTxt, textVars);
 
-  console.log("FINE");
+  // await transporter.sendMail({
+  //   from: '"Lappas Productions Tickets" <tickets@lappasproductions.gr>',
+  //   to: person.email,
+  //   replyTo: "tickets@lappasproductions.gr",
+  //   subject: Emailsubject,
+  //   html,
+  //   text,
+  //   attachments:
+  //     statusCode === "CREATED_ACTIVE"
+  //       ? [{ filename: "qr.png", content: qrBuffer, cid: "qr-code" }]
+  //       : [],
+  // });
+  const resend = new Resend(process.env.RESEND_API_KEY!);
 
-  await transporter.sendMail({
-    from: '"Lappas Productions Tickets" <tickets@lappasproductions.gr>',
+  await resend.emails.send({
+    from: process.env.FROM_EMAIL as string,
     to: person.email,
     replyTo: "tickets@lappasproductions.gr",
     subject: Emailsubject,
-    html,
-    text,
-    attachments:
-      statusCode === "CREATED_ACTIVE"
-        ? [{ filename: "qr.png", content: qrBuffer, cid: "qr-code" }]
-        : [],
+    html, // το HTML template σου όπως είναι
+    text, // το plain-text template σου
+    // tip: αντί για CID attachments, βάλε το QR σαν data URL μέσα στο HTML:
+    // <img src="{{qr_src}}" ...> όπου qr_src = "data:image/png;base64,...."
   });
 }

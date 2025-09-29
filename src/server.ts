@@ -43,7 +43,7 @@ const corsOptions: cors.CorsOptions = {
 };
 app.use(cors(corsOptions));
 // προαιρετικό: αν θες ρητά preflight, χρησιμοποίησε regex και ΟΧΙ "*"
-// app.options(/.*/, cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 // ===== Schemas =====
 const UserSchema = z.object({
