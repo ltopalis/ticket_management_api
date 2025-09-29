@@ -181,14 +181,15 @@ export async function sendReservationEmail(payload: unknown) {
   //       : [],
   // });
   const resend = new Resend(process.env.RESEND_API_KEY!);
+  console.log("FINE");
 
   await resend.emails.send({
     from: process.env.FROM_EMAIL as string,
     to: person.email,
     replyTo: "tickets@lappasproductions.gr",
     subject: Emailsubject,
-    html, // το HTML template σου όπως είναι
-    text, // το plain-text template σου
+    html,
+    text,
     // tip: αντί για CID attachments, βάλε το QR σαν data URL μέσα στο HTML:
     // <img src="{{qr_src}}" ...> όπου qr_src = "data:image/png;base64,...."
   });
