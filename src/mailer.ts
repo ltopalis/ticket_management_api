@@ -108,6 +108,7 @@ export async function sendReservationEmail(payload: unknown) {
   const manage_url = `${BASE_URL}/r/${id}`;
 
   const qrBuffer = await makeQrPng(id);
+  const qr_src = `data:image/png;base64,${qrBuffer.toString("base64")}`;
 
   const commonVars = {
     public_code,
@@ -121,6 +122,7 @@ export async function sendReservationEmail(payload: unknown) {
     time,
     num_seats,
     manage_url,
+    qr_src,
   };
 
   let templateNameHtml: string;
@@ -168,7 +170,6 @@ export async function sendReservationEmail(payload: unknown) {
   const html = renderTemplate(templateNameHtml, htmlVars);
   const text = renderTemplate(templateNameTxt, textVars);
 
-  console.log("FINE");
   // await transporter.sendMail({
   //   from: '"Lappas Productions Tickets" <tickets@lappasproductions.gr>',
   //   to: person.email,
