@@ -156,6 +156,7 @@ app.post("/createReservation", async (req, res) => {
 
     const code = result.code;
     if (code === "CREATED_ACTIVE" || code === "CREATED_PENDING") {
+      console.log("FINE BEFORE CALLING");
       await sendReservationEmail(result);
       return res.status(200).json(result);
     }

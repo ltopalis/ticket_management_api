@@ -168,6 +168,7 @@ export async function sendReservationEmail(payload: unknown) {
   const html = renderTemplate(templateNameHtml, htmlVars);
   const text = renderTemplate(templateNameTxt, textVars);
 
+  console.log("FINE");
   // await transporter.sendMail({
   //   from: '"Lappas Productions Tickets" <tickets@lappasproductions.gr>',
   //   to: person.email,
@@ -181,7 +182,6 @@ export async function sendReservationEmail(payload: unknown) {
   //       : [],
   // });
   const resend = new Resend(process.env.RESEND_API_KEY!);
-  console.log("FINE");
 
   await resend.emails.send({
     from: process.env.FROM_EMAIL as string,
